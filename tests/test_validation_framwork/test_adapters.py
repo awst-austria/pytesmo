@@ -31,6 +31,7 @@ Test for the adapters.
 '''
 
 from pytesmo.validation_framework.adapters import MaskingAdapter
+from pytesmo.validation_framework.adapters import SelfMaskingAdapter
 from pytesmo.validation_framework.adapters import AnomalyAdapter
 from pytesmo.validation_framework.adapters import AnomalyClimAdapter
 from test_datasets import TestDataset
@@ -40,23 +41,48 @@ import numpy.testing as nptest
 
 
 def test_masking_adapter():
+    for col in (None, 'x'):
+        ds = TestDataset('', n=20)
+        ds_mask = MaskingAdapter(ds, '<', 10, col)
+        data_masked = ds_mask.read_ts()
+        data_masked2 = ds_mask.read()
+
+        nptest.assert_almost_equal(data_masked['x'].values,
+                                   np.concatenate([np.ones((10), dtype=bool),
+                                                   np.zeros((10), dtype=bool)]))
+        nptest.assert_almost_equal(data_masked2['x'].values,
+                                   np.concatenate([np.ones((10), dtype=bool),
+                                                   np.zeros((10), dtype=bool)]))
+
+        if col is None:
+            nptest.assert_almost_equal(
+                data_masked['y'].values, np.ones((20), dtype=bool))
+            nptest.assert_almost_equal(
+                data_masked2['y'].values, np.ones((20), dtype=bool))
+
+def test_self_masking_adapter():
+    ref_x = np.arange(10)
+    ref_y = np.arange(10) * 0.5
     ds = TestDataset('', n=20)
-    ds_mask = MaskingAdapter(ds, '<', 10)
+    
+    ds_mask = SelfMaskingAdapter(ds, '<', 10, 'x')
     data_masked = ds_mask.read_ts()
-    nptest.assert_almost_equal(data_masked['x'].values,
-                               np.concatenate([np.ones((10), dtype=bool),
-                                               np.zeros((10), dtype=bool)]))
+    data_masked2 = ds_mask.read()
 
-    nptest.assert_almost_equal(
-        data_masked['y'].values, np.ones((20), dtype=bool))
-
+    nptest.assert_almost_equal(data_masked['x'].values,ref_x)
+    nptest.assert_almost_equal(data_masked2['x'].values,ref_x)
+    nptest.assert_almost_equal(data_masked['y'].values,ref_y)
+    nptest.assert_almost_equal(data_masked2['y'].values,ref_y)
 
 def test_anomaly_adapter():
     ds = TestDataset('', n=20)
     ds_anom = AnomalyAdapter(ds)
     data_anom = ds_anom.read_ts()
+    data_anom2 = ds_anom.read()
     nptest.assert_almost_equal(data_anom['x'].values[0], -8.5)
     nptest.assert_almost_equal(data_anom['y'].values[0], -4.25)
+    nptest.assert_almost_equal(data_anom2['x'].values[0], -8.5)
+    nptest.assert_almost_equal(data_anom2['y'].values[0], -4.25)
 
 
 def test_anomaly_adapter_one_column():
@@ -71,8 +97,11 @@ def test_anomaly_clim_adapter():
     ds = TestDataset('', n=20)
     ds_anom = AnomalyClimAdapter(ds)
     data_anom = ds_anom.read_ts()
+    data_anom2 = ds_anom.read()
     nptest.assert_almost_equal(data_anom['x'].values[4], -5.5)
     nptest.assert_almost_equal(data_anom['y'].values[4], -2.75)
+    nptest.assert_almost_equal(data_anom2['x'].values[4], -5.5)
+    nptest.assert_almost_equal(data_anom2['y'].values[4], -2.75)
 
 
 def test_anomaly_clim_adapter_one_column():
