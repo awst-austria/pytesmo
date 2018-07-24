@@ -40,6 +40,7 @@ import os
 import datetime
 import pytest
 import numpy.testing as nptest
+import pytesmo.io.ismn.metadata_collector as metadata_collector
 
 
 def test_min_max_obstime_getting():
@@ -130,3 +131,21 @@ def test_interface_plotting():
         path_header_values, network=['SCAN'])
     fig, axes = hv_interface.plot_station_locations()
     return fig
+
+
+def test_metadata_collector():
+    """
+    Test metadata collector, in particular station order
+    """
+    path_header_values = os.path.join(os.path.dirname(__file__),
+                                      '..', 'test-data', 'ismn', 'multinetwork', 'header_values')
+
+    metadata = metadata_collector.collect_from_folder(path_header_values)
+
+    filenames = []
+    for m in metadata:
+        filenames.append(m[-1])
+
+    sorted_filenames = sorted(filenames)
+
+    assert sorted_filenames == filenames
