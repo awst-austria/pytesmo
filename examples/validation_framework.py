@@ -259,7 +259,7 @@ results_fname = os.path.join(save_path, 'ASCAT.sm_with_ISMN.soil moisture.nc')
 
 with netCDF4.Dataset(results_fname) as ds:
     for var in ds.variables:
-        print var, ds.variables[var][:]
+        print(var, ds.variables[var][:])
 
 
 # ## Parallel processing
@@ -316,7 +316,7 @@ def start_processing(job):
 from pytesmo.validation_framework.adapters import MaskingAdapter
 
 ds_mask = MaskingAdapter(ismn_reader, '<', 0.2, 'soil moisture')
-print ds_mask.read_ts(ids[0]).head()
+print(ds_mask.read_ts(ids[0]).head())
 
 
 # ### Self-masking adapter
@@ -328,5 +328,5 @@ print ds_mask.read_ts(ids[0]).head()
 from pytesmo.validation_framework.adapters import SelfMaskingAdapter
 
 ds_mask = SelfMaskingAdapter(ismn_reader, '<', 0.2, 'soil moisture')
-print ds_mask.read_ts(ids[0]).head()
+print(ds_mask.read_ts(ids[0]).head())
 
