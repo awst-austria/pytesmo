@@ -87,8 +87,6 @@ from pytesmo.validation_framework.results_manager import netcdf_results_manager
 
 # You need the test data from https://github.com/TUW-GEO/pytesmo-test-data for this example
 
-# You need the test data from https://github.com/TUW-GEO/pytesmo-test-data for this example
-
 # In[2]:
 
 
@@ -172,6 +170,7 @@ print(data.head())
 
 # In[7]:
 
+# In[7]:
 
 datasets = {
     'ISMN': {
@@ -185,7 +184,6 @@ datasets = {
                    'mask_snow_prob': 80,
                    'mask_ssf': True}
     }}
-
 
 # The datasets dictionary contains all the information about the datasets to read. The `class` is the dataset class
 # to use which we have already initialized. The `columns` key describes which columns of the dataset interest us for
@@ -231,9 +229,7 @@ process = Validation(
 # 
 # Create the variable ***save_path*** which is a string representing the path where the results will be saved.
 # **DO NOT CHANGE** the name ***save_path*** because it will be searched during the parallel processing!
-
 # In[9]:
-
 
 save_path = output_folder
 
