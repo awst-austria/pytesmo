@@ -253,26 +253,29 @@ class DataManager(object):
             data_df = func(*args, **ds['kwargs'])
             if type(data_df) is TS or issubclass(type(data_df), TS):
                 data_df = data_df.data
-        except IOError:
+        except IOError as ioe:
             warnings.warn(
-                "IOError while reading dataset {} with args {:}".format(name,
-                                                                        args))
+                "IOError while reading dataset {} with args {:}: {}".format(name,
+                                                                        args,
+                                                                        ioe))
             return None
         except RuntimeError as e:
             if e.args[0] == "No such file or directory":
                 warnings.warn(
-                    "IOError while reading dataset {} with args {:}".format(name,
-                                                                            args))
+                    "IOError while reading dataset {} with args {:}: {}".format(name,
+                                                                            args,
+                                                                            e))
                 return None
             else:
                 raise e
 
         if len(data_df) == 0:
-            warnings.warn("No data for dataset {}".format(name))
+            warnings.warn("No data for dataset {} with arguments {:}".format(name, 
+                                                                        args))
             return None
 
         if isinstance(data_df, pd.DataFrame) == False:
-            warnings.warn("Data is not a DataFrame {:}".format(args))
+            warnings.warn("Data is not a DataFrame, {} args {:}".format(name, args))
             return None
 
         if self.period is not None:
