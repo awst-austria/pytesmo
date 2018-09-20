@@ -4,6 +4,8 @@ except ImportError:
     # python 3
     pass
 
+import warnings
+
 import numpy as np
 import pandas as pd
 from pygeogrids.grids import CellGrid
@@ -192,9 +194,13 @@ class Validation(object):
 
             # if no data is available continue with the next gpi
             if len(df_dict) == 0:
+                warnings.warn("No data for gpi {}".format(gpi_info))
                 continue
             matched_data, result, used_data = self.perform_validation(
                 df_dict, gpi_info)
+
+            if not result:
+                warnings.warn("No results for gpi {}".format(gpi_info))
 
             # add result of one gpi to global results dictionary
             for r in result:

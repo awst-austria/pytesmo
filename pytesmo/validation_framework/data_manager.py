@@ -255,27 +255,27 @@ class DataManager(object):
                 data_df = data_df.data
         except IOError as ioe:
             warnings.warn(
-                "IOError while reading dataset {} with args {:}: {}".format(name,
+                "IOError while reading dataset {} with arguments {:}: {}".format(name,
                                                                         args,
                                                                         ioe))
             return None
         except RuntimeError as e:
             if e.args[0] == "No such file or directory":
                 warnings.warn(
-                    "IOError while reading dataset {} with args {:}: {}".format(name,
+                    "IOError while reading dataset {} with arguments {:}: {}".format(name,
                                                                             args,
                                                                             e))
                 return None
             else:
                 raise e
 
-        if len(data_df) == 0:
+        if data_df is None or len(data_df) == 0:
             warnings.warn("No data for dataset {} with arguments {:}".format(name, 
                                                                         args))
             return None
 
         if isinstance(data_df, pd.DataFrame) == False:
-            warnings.warn("Data is not a DataFrame, {} args {:}".format(name, args))
+            warnings.warn("Data is not a DataFrame in dataset {} with arguments {:}".format(name, args))
             return None
 
         if self.period is not None:
@@ -285,7 +285,7 @@ class DataManager(object):
                 self.period[0].isoformat():self.period[1].isoformat()]
 
         if len(data_df) == 0:
-            warnings.warn("No data for dataset {} with arguments {:}".format(name,
+            warnings.warn("No data for dataset {} in validation period with arguments {:}".format(name,
                                                                              args))
             return None
 
