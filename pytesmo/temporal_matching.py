@@ -1,11 +1,112 @@
 """
 Provides a temporal matching function
 """
+import warnings
 
 import numpy as np
+import pandas as pd
 from scipy.spatial import cKDTree
 
-import pandas as pd
+
+def df_temp_merge(df_reference, df_other, return_index=False,
+                  return_distance=False, tolerance=None, direction='nearest',
+                  duplicate_nan=False):
+    """
+    Merge nearest neighbor between reference and other time series into
+    common dataframe.
+
+    Parameters
+    ----------
+    df_reference : pandas.DataFrame
+        Reference time series.
+    df_other : tuple/list of pandas.DataFrame or pandas.DataFrame
+        Time series matched against reference time series.
+    return_index : bool, optional
+        Include index of other time series in matched dataframe
+        (default: False).
+    return_distance : bool, optional
+        Include distance information between reference and other time series
+        in matched dataframe (default: False).
+    tolerance : pd.Timedelta, optional
+        Select nearest neighbor tolerance (default: None).
+    direction : str, optional
+        Whether to search 'backward', 'forward', or 'nearest' matches
+        (default: 'nearest').
+    duplicate_nan : bool, optional
+        Set duplicate NaN (default: False).
+
+    Returns
+    -------
+    df_tm : pandas.DataFrame
+        Reference time series matched with other time series.
+    """
+    if(np.sum(df_reference.index.duplicated()) > 0):
+        warnings.warn('Reference time series contains duplicated indices,'
+                      ' which have been removed')
+        df_reference = df_reference[~df_reference.index.duplicated()]
+
+    if not isinstance(df_other, tuple):
+        df_other = (df_other, )
+
+    if isinstance(df_reference, pd.Series):
+        if df_reference.name is None:
+            name = 'reference'
+        else:
+            name = df_reference.name
+
+        df_reference = df_reference.to_frame(name)
+
+    for i, other in enumerate(df_other):
+
+        if isinstance(other, pd.Series):
+            if other.name is None:
+                name = 'series_{}'.format(i)
+            else:
+                name = other.name
+
+            other = other.to_frame(name)
+
+        dist_str = 'dist_other_{}'.format(i)
+        ind_str = 'ind_other_{}'.format(i)
+        other[ind_str] = other.index
+        col_other = other.columns
+
+        df = pd.merge_asof(df_reference, other, left_index=True,
+                           right_index=True, direction=direction,
+                           tolerance=tolerance)
+
+        df[dist_str] = (df[ind_str].values -
+                        df.index.values) / np.timedelta64(1, 'D')
+
+        if duplicate_nan:
+            unq, unq_idx = np.unique(df[ind_str].values, return_index=True)
+            unq_idx = np.concatenate([unq_idx, np.array([len(df)])])
+            dist = df[dist_str].values
+
+            no_dup = []
+            for j in np.arange(unq_idx.size-1):
+                m = np.argmin(np.abs(
+                    dist[unq_idx[j]:unq_idx[j+1]])) + unq_idx[j]
+                no_dup.append(m)
+
+            duplicates = np.ones(len(df), dtype=np.bool)
+            duplicates[no_dup] = False
+            df.loc[duplicates, col_other] = np.nan
+
+        fields = []
+
+        if not return_index:
+            fields.append(ind_str)
+
+        if not return_distance:
+            fields.append(dist_str)
+
+        if fields:
+            df.drop(fields, axis=1, inplace=True)
+
+        df_tm = df
+
+    return df_tm
 
 
 def df_match(reference, *args, **kwds):
@@ -30,8 +131,10 @@ def df_match(reference, *args, **kwds):
     dropduplicates : boolean
         Drop duplicated temporal matched (default: False)
     asym_window: string, optional
-        ``<=`` stands for using a smaller and equal only for the left/smaller side of the window comparison
-        ``>=`` stands for using a larger and equal only for the right/larger side of the window comparison
+        ``<=`` stands for using a smaller and equal only for the left/smaller
+        side of the window comparison
+        ``>=`` stands for using a larger and equal only for the right/larger
+        side of the window comparison
         The default is to use <= and >= for both sides of the search window
 
     Returns
@@ -49,6 +152,11 @@ def df_match(reference, *args, **kwds):
     else:
         asym_window = None
 
+    if(np.sum(reference.index.duplicated()) > 0):
+        warnings.warn('Reference time series contains duplicated indices,'
+                      ' which have been removed')
+        reference = reference[~reference.index.duplicated()]
+
     temporal_matched_args = []
     ref_step = reference.index.values - reference.index.values[0]
 
@@ -57,6 +165,7 @@ def df_match(reference, *args, **kwds):
         if type(arg) is pd.Series:
             arg = pd.DataFrame(arg)
         comp_step = arg.index.values - reference.index.values[0]
+
         values = np.arange(comp_step.size)
         # setup kdtree which must get 2D input
         try:
@@ -93,14 +202,18 @@ def df_match(reference, *args, **kwds):
             if asym_window == "<=":
                 # this means that only distance in the interval [distance[ are
                 # taken
-                valid_dist = ((arg_matched['distance'] >= 0.0) & (arg_matched['distance'] <= window)) | (
-                    (arg_matched['distance'] <= 0.0) & (arg_matched['distance'] > -window))
+                valid_dist = ((arg_matched['distance'] >= 0.0) & (
+                    arg_matched['distance'] <= window)) | (
+                    (arg_matched['distance'] <= 0.0) & (
+                        arg_matched['distance'] > -window))
                 invalid_dist = ~valid_dist
             if asym_window == ">=":
                 # this means that only distance in the interval ]distance] are
                 # taken
-                valid_dist = ((arg_matched['distance'] >= 0.0) & (arg_matched['distance'] < window)) | (
-                    (arg_matched['distance'] <= 0.0) & (arg_matched['distance'] >= -window))
+                valid_dist = ((arg_matched['distance'] >= 0.0) & (
+                    arg_matched['distance'] < window)) | (
+                    (arg_matched['distance'] <= 0.0) & (
+                        arg_matched['distance'] >= -window))
                 invalid_dist = ~valid_dist
             arg_matched.loc[invalid_dist] = np.nan
 
@@ -109,9 +222,19 @@ def df_match(reference, *args, **kwds):
 
         if "dropduplicates" in kwds and kwds['dropduplicates']:
             arg_matched = arg_matched.dropna(how='all')
-            g = arg_matched.groupby('merge_key')
-            min_dists = g.distance.apply(lambda x: x.abs().idxmin())
-            arg_matched = arg_matched.ix[min_dists]
+
+            unq, unq_idx = np.unique(arg_matched['index'].values,
+                                     return_index=True)
+            unq_idx = np.concatenate([unq_idx, np.array([len(arg_matched)])])
+
+            dist = arg_matched['distance'].values
+            no_dup = []
+            for j in np.arange(unq_idx.size-1):
+                m = np.argmin(np.abs(
+                    dist[unq_idx[j]:unq_idx[j+1]])) + unq_idx[j]
+                no_dup.append(m)
+
+            arg_matched = arg_matched.iloc[no_dup]
 
         temporal_matched_args.append(
             arg_matched.drop(['merge_key', 'ref_index'], axis=1))
@@ -141,8 +264,8 @@ def matching(reference, *args, **kwargs):
     Returns
     -------
     temporal_match : pandas.DataFrame
-        containing the index of the reference Series and a column for each of the
-        other input Series
+        containing the index of the reference Series and a column for each
+        of the other input Series
     """
     matched_datasets = df_match(reference, *args, dropna=True,
                                 dropduplicates=True, **kwargs)
@@ -154,6 +277,10 @@ def matching(reference, *args, **kwargs):
 
     for match in matched_datasets:
         match = match.drop(['distance', 'index'], axis=1)
+
+        if matched_data.index.tz is not None:
+            match.index = match.index.tz_localize('utc')
+
         matched_data = matched_data.join(match)
 
     return matched_data.dropna()
